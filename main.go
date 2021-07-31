@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"golang_tools/accumulator"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,44 +22,51 @@ func (e *Execute) Execute(m map[string]map[string]uint64) {
 	}
 }
 
-func main() {
+func testAccumulator() {
+	execute := &Execute{}
+	accumulator.SetAccumulator("123", "@every 1s", execute)
+	accumulator.Run()
+	go func() {
+		for i := 0; i < 100; i++ {
+			time.Sleep(time.Second * time.Duration(1))
+			accumulator.Add("total", "time", 1)
+		}
+	}()
+	go func() {
+		for i := 0; i < 100; i++ {
+			time.Sleep(time.Second * time.Duration(1))
+			res := accumulator.Get("123", "total", "time")
+			fmt.Println(res)
+		}
+	}()
+}
 
-	// execute := &Execute{}
-	// accumulator.SetAccumulator("123", "@every 1s", execute)
-	// accumulator.Run()
-	// go func() {
-	// 	for i := 0; i < 100; i++ {
-	// 		time.Sleep(time.Second * time.Duration(1))
-	// 		accumulator.Add("total", "time", 1)
-	// 	}
-	// }()
-	// go func() {
-	// 	for i := 0; i < 100; i++ {
-	// 		time.Sleep(time.Second * time.Duration(1))
-	// 		accumulator.Add("total", "time", 1)
-	// 	}
-	// }()
-
+func testTimeTicker() {
 	ticker := time.NewTicker(time.Second * time.Duration(1))
 	go func() {
-		for{
+		for {
 			select {
 			case <-ticker.C:
 				fmt.Println("213333")
 			}
 		}
 	}()
+}
 
+func exit() {
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
-		fmt.Println()
 		fmt.Println(sig)
 		done <- true
 	}()
 	<-done
 	fmt.Println("exiting")
+}
 
+func main() {
+	testAccumulator()
+	exit()
 }

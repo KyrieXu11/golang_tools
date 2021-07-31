@@ -63,6 +63,10 @@ func (a *accumulator) exec() {
 	a.execute.Execute(a.metrics)
 }
 
+func (a *accumulator) get(property, metric string) uint64 {
+	return a.metrics[property][metric]
+}
+
 func (a *accumulator) add(property, metric string, val uint64) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -78,4 +82,13 @@ func Add(property, metric string, val uint64) {
 	for _, a := range accumulators {
 		a.add(property, metric, val)
 	}
+}
+
+func Get(accumulatorName, property, metric string) uint64 {
+	for _, a := range accumulators {
+		if a.name == accumulatorName {
+			return a.get(property, metric)
+		}
+	}
+	return 0
 }
