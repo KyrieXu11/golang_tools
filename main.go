@@ -10,6 +10,7 @@ import (
 )
 
 type Execute struct {
+	accumulator.AccumulatorFunc
 }
 
 func (e *Execute) Execute(m map[string]map[string]uint64) {
@@ -26,17 +27,33 @@ func testAccumulator() {
 	execute := &Execute{}
 	accumulator.SetAccumulator("123", "@every 1s", execute)
 	accumulator.Run()
+	done := make(chan bool)
 	go func() {
 		for i := 0; i < 100; i++ {
 			time.Sleep(time.Second * time.Duration(1))
 			accumulator.Add("total", "time", 1)
 		}
+		done <- true
 	}()
+	// go func() {
+	// 	for i := 0; i < 100; i++ {
+	// 		time.Sleep(time.Second * time.Duration(1))
+	// 		res := accumulator.Get("123", "total", "time")
+	// 		fmt.Println(res)
+	// 	}
+	// 	done <- true
+	// }()
+
 	go func() {
-		for i := 0; i < 100; i++ {
-			time.Sleep(time.Second * time.Duration(1))
-			res := accumulator.Get("123", "total", "time")
-			fmt.Println(res)
+		for true {
+			select {
+			case <-done:
+				break
+			default:
+				res := accumulator.Get("123", "total", "time")
+				fmt.Println(res)
+			}
+			time.Sleep(time.Second*time.Duration(1))
 		}
 	}()
 }
