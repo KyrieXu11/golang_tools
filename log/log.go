@@ -12,6 +12,10 @@ func SetConfig(config *Config) {
 	logger.SetConfig(config)
 }
 
+func GetDefaultConfig() *Config {
+	return defaultConfig()
+}
+
 func Debug(args ...interface{}) {
 	logger.Debug(args...)
 }

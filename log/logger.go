@@ -13,39 +13,39 @@ type Logger struct {
 }
 
 type Config struct {
-	logLevel    string          // 默认日志记录级别
+	LogLevel    string          // 默认日志记录级别
 	stackTrace  string          // 记录堆栈的级别
 	atomicLevel zap.AtomicLevel // 用于动态更改日志记录级别
-	projectName string          // 项目名称
+	ProjectName string          // 项目名称
 	callerSkip  int             // CallerSkip次数
-	jsonFormat  bool            // 输出json格式
-	consoleOut  bool            // 是否输出到console
-	fileOut     *fileOut
+	JsonFormat  bool            // 输出json格式
+	ConsoleOut  bool            // 是否输出到console
+	FileOutConf *FileOut
 }
 
-type fileOut struct {
-	enable        bool   // 是否将日志输出到文件
-	path          string // 日志保存路径
-	name          string // 日志保存的名称，不些随机生成
-	rotationTime  uint   // 日志切割时间间隔(小时)
-	rotationCount uint   // 文件最大保存份数
+type FileOut struct {
+	Enable        bool   // 是否将日志输出到文件
+	LogPath       string // 日志保存路径
+	LogName       string // 日志保存的名称，不些随机生成
+	RotationTime  uint   // 日志切割时间间隔(小时)
+	RotationCount uint   // 文件最大保存份数
 }
 
 func defaultConfig() *Config {
 	return &Config{
-		logLevel:    "info",
+		LogLevel:    "info",
 		stackTrace:  "panic",
 		atomicLevel: zap.NewAtomicLevel(),
-		projectName: "",
+		ProjectName: "",
 		callerSkip:  1,
-		jsonFormat:  true,
-		consoleOut:  true,
-		fileOut: &fileOut{
-			enable:        true,
-			path:          "logs",
-			name:          "log",
-			rotationTime:  24,
-			rotationCount: 7,
+		JsonFormat:  true,
+		ConsoleOut:  true,
+		FileOutConf: &FileOut{
+			Enable:        true,
+			LogPath:       "logs",
+			LogName:       "log",
+			RotationTime:  24,
+			RotationCount: 7,
 		},
 	}
 }
@@ -63,28 +63,33 @@ func (l *Logger) setConf(conf *Config) {
 
 	var encoder zapcore.Encoder
 
-	if conf.jsonFormat {
+	if conf.JsonFormat {
 		encoder = zapcore.NewJSONEncoder(getEncoder())
 	} else {
 		encoder = zapcore.NewConsoleEncoder(getEncoder())
 	}
 
-	conf.atomicLevel.SetLevel(getLevel(conf.logLevel))
+	conf.atomicLevel.SetLevel(getLevel(conf.LogLevel))
 
-	if conf.consoleOut {
+	if conf.ConsoleOut {
 		writer := zapcore.Lock(os.Stdout)
 		core := zapcore.NewCore(encoder, writer, conf.atomicLevel)
 		cores = append(cores, core)
 	}
 
-	if conf.fileOut.enable {
+	if conf.FileOutConf.Enable {
 		for i := 1; i <= maxLevel; i++ {
 			level := getLevelString(i)
+			pattern := fmt.Sprintf("%s-%s-", conf.FileOutConf.LogName, level)
+			projectName := l.conf.ProjectName
+			if "" != projectName {
+				pattern = fmt.Sprintf("%s-%s", projectName, pattern)
+			}
 			fileWriter := getFileWriter(
-				conf.fileOut.path,
-				fmt.Sprintf("%s-%s-", conf.fileOut.name, level),
-				conf.fileOut.rotationTime,
-				conf.fileOut.rotationCount,
+				conf.FileOutConf.LogPath,
+				pattern,
+				conf.FileOutConf.RotationTime,
+				conf.FileOutConf.RotationCount,
 			)
 			writer := zapcore.AddSync(fileWriter)
 			core := zapcore.NewCore(encoder, writer, getLevel(level))
@@ -101,8 +106,8 @@ func (l *Logger) setConf(conf *Config) {
 		zap.AddCaller(),
 	)
 
-	if conf.projectName != "" {
-		logger = logger.Named(conf.projectName)
+	if conf.ProjectName != "" {
+		logger = logger.Named(conf.ProjectName)
 	}
 
 	defer l.Sync()

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"golang_tools/accumulator"
+	"golang_tools/log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -53,7 +54,7 @@ func testAccumulator() {
 				res := accumulator.Get("123", "total", "time")
 				fmt.Println(res)
 			}
-			time.Sleep(time.Second*time.Duration(1))
+			time.Sleep(time.Second * time.Duration(1))
 		}
 	}()
 }
@@ -83,7 +84,15 @@ func exit() {
 	fmt.Println("exiting")
 }
 
+func testLogger() {
+	config := log.GetDefaultConfig()
+	config.ProjectName = "golang_tools"
+	log.SetConfig(config)
+	log.Info("123")
+}
+
 func main() {
-	testAccumulator()
+	// testAccumulator()
+	testLogger()
 	exit()
 }
