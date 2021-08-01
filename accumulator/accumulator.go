@@ -15,7 +15,10 @@ type accumulator struct {
 	mutex   sync.Mutex
 }
 
-var accumulators []*accumulator
+var (
+	accumulators   []*accumulator
+	accumulatorMap = make(map[string]*accumulator)
+)
 
 type AccumulatorFunc interface {
 	Execute(map[string]map[string]uint64)
@@ -44,6 +47,7 @@ func SetAccumulator(name string, expr string, f AccumulatorFunc) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	accumulators = append(accumulators, a)
+	accumulatorMap[a.name] = a
 }
 
 func NewAccumulator(name string, expr string, f AccumulatorFunc) *accumulator {
@@ -54,12 +58,14 @@ func NewAccumulator(name string, expr string, f AccumulatorFunc) *accumulator {
 		mutex:   sync.Mutex{},
 		execute: f,
 	}
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	accumulators = append(accumulators, a)
+	accumulatorMap[a.name] = a
 	return a
 }
 
 func (a *accumulator) exec() {
-	log.Println("start execute job")
 	a.execute.Execute(a.metrics)
 }
 
@@ -84,11 +90,15 @@ func Add(property, metric string, val uint64) {
 	}
 }
 
+func AddByName(accumulatorName, property, metric string, val uint64) {
+	accumulatorMap[accumulatorName].add(property, metric, val)
+}
+
 func Get(accumulatorName, property, metric string) uint64 {
-	for _, a := range accumulators {
-		if a.name == accumulatorName {
-			return a.get(property, metric)
-		}
-	}
-	return 0
+	// for _, a := range accumulators {
+	// 	if a.name == accumulatorName {
+	// 		return a.get(property, metric)
+	// 	}
+	// }
+	return accumulatorMap[accumulatorName].get(property, metric)
 }

@@ -47,6 +47,7 @@ func testAccumulator() {
 
 	go func() {
 		for true {
+			time.Sleep(time.Second * time.Duration(1))
 			select {
 			case <-done:
 				break
@@ -54,7 +55,6 @@ func testAccumulator() {
 				res := accumulator.Get("123", "total", "time")
 				fmt.Println(res)
 			}
-			time.Sleep(time.Second * time.Duration(1))
 		}
 	}()
 }
@@ -92,7 +92,7 @@ func testLogger() {
 }
 
 func main() {
-	// testAccumulator()
-	testLogger()
+	testAccumulator()
+	// testLogger()
 	exit()
 }

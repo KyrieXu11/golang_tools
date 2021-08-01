@@ -26,7 +26,7 @@ type Config struct {
 type FileOut struct {
 	Enable        bool   // 是否将日志输出到文件
 	LogPath       string // 日志保存路径
-	LogName       string // 日志保存的名称，不些随机生成
+	LogName       string // 日志保存的名称，不写默认为空
 	RotationTime  uint   // 日志切割时间间隔(小时)
 	RotationCount uint   // 文件最大保存份数
 }
