@@ -1,8 +1,12 @@
 package main
 
-import "golang_tools/git_manager"
+import (
+	"golang_tools/git_manager"
+	"log"
+)
 
 func main() {
-	git_manager.GitCommand().List()
-
+	if err := git_manager.GitCommand().Main(); err != nil {
+		log.Fatalln(err)
+	}
 }

@@ -3,48 +3,163 @@ package git_manager
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"github.com/posener/cmd"
+	"golang_tools/git_manager/constant"
 	"os/exec"
 	"strconv"
 	"strings"
 )
 
 var (
-	command *Command
+	command    *Command
+	flagParser *FlagParser
 )
 
+type ICommand interface {
+	// list 命令
+	list() error
+	// use 命令
+	use() error
+	// set 命令
+	set() error
+	// get 命令
+	get() error
+	// delete 命令
+	delete() error
+}
+
 type GitProfile struct {
-	Id       int    `json:"id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Status   int    `json:"status"`
+	Id          int    `json:"id"`
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	Description string `json:"description"`
+	Status      int    `json:"status"`
+}
+
+func (g *GitProfile) print() {
+
+}
+
+func (g *GitProfile) string() string {
+	if g.Status == constant.Deleted {
+		return ""
+	}
+	return fmt.Sprintf("|%15d\t|%15s\t|%15s\t|%15s\t|", g.Id, g.Username, g.Email, g.Description)
 }
 
 type Command struct {
-	Current *GitProfile
+	flagParser *FlagParser
 
-	Groups []*GitProfile
+	Current *GitProfile   `json:"current"`
+	Groups  []*GitProfile `json:"groups"`
+}
+
+type Args struct {
+	command     ICommand
+	CommandType int
+	Id          int
+	Username    string
+	Email       string
+}
+
+func (o *Args) use() error {
+	switch o.CommandType {
+	case constant.CommandUse:
+		return o.command.use()
+	case constant.CommandList:
+		return o.command.list()
+	case constant.CommandDelete:
+		return o.command.delete()
+	case constant.CommandGet:
+		return o.command.get()
+	case constant.CommandSet:
+		return o.command.set()
+	}
+	return nil
+}
+
+func (o *Args) setCommand(c ICommand) *Args {
+	o.command = c
+	return o
+}
+
+type FlagParser struct{}
+
+func argsParser() *FlagParser {
+	if flagParser == nil {
+		flagParser = new(FlagParser)
+	}
+	return flagParser
+}
+
+func (o *FlagParser) parse() *Args {
+	var res = new(Args)
+	root := cmd.New()
+	listSubCmd := root.SubCommand("list", "")
+
+	useCommand := o.useCommand(root)
+	id := useCommand.Int("id", constant.InvalidId, "")
+
+	setCommand := o.setCommand(root)
+	username_p := setCommand.String("username", "", "")
+	email_p := setCommand.String("email", "", "")
+
+	switch {
+	case listSubCmd.Parsed():
+		res.CommandType = constant.CommandList
+		return res
+	case useCommand.Parsed():
+		res.CommandType = constant.CommandUse
+		res.Id = *id
+		return res
+	case setCommand.Parsed():
+		res.CommandType = constant.CommandUse
+		res.Username = *username_p
+		res.Email = *email_p
+		return res
+	}
+	return nil
+}
+
+func (o *FlagParser) useCommand(root *cmd.Cmd) *cmd.SubCmd {
+	useSubCmd := root.SubCommand("use", "")
+	return useSubCmd
+}
+
+func (o *FlagParser) setCommand(root *cmd.Cmd) *cmd.SubCmd {
+	return root.SubCommand("use", "")
 }
 
 func GitCommand() *Command {
 	if command != nil {
-		command = &Command{}
+		command = &Command{
+			flagParser: argsParser(),
+		}
 	}
 	return command
 }
 
-func readConfFile() {
+func (o *Command) Main() error {
+	// 判断是否为git目录
+	if err := o.isGitRepo(); err != nil {
+		return err
+	}
 
+	// 初始化
+	if err := o.readFromFile(); err != nil {
+		return err
+	}
+	return o.flagParser.parse().setCommand(o).use()
 }
 
 func (o *Command) isGitRepo() error {
-	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	c := exec.Command("git", "rev-parse", "--is-inside-work-tree")
 	var out bytes.Buffer
-	cmd.Stdout = &out
-	if err := cmd.Start(); err != nil {
+	c.Stdout = &out
+	if err := c.Start(); err != nil {
 		return err
 	}
-	if err := cmd.Wait(); err != nil {
+	if err := c.Wait(); err != nil {
 		return err
 	}
 	s := out.String()
@@ -52,18 +167,37 @@ func (o *Command) isGitRepo() error {
 	if res, err := strconv.ParseBool(s); err != nil {
 		return err
 	} else if !res {
-		return fmt.Errorf("there is no a git repo")
+		return fmt.Errorf("there is not a git repo")
 	}
 	return nil
 }
 
-func (o *Command) List() {
-	if err := o.isGitRepo(); err != nil {
-		log.Fatalln(err)
-	}
+func (o *Command) list() error {
+	return nil
+}
+
+// readFromFile 读取文件成对象
+func (o *Command) readFromFile() error {
+	return nil
+}
+
+// flush 刷新内存配置至文件
+func (o *Command) flush() {
 
 }
 
-func (o *Command) flush() {
+func (o *Command) use() error {
+	return nil
+}
 
+func (o *Command) delete() error {
+	return nil
+}
+
+func (o *Command) set() error {
+	return nil
+}
+
+func (o *Command) get() error {
+	return nil
 }
