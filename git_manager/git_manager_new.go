@@ -36,6 +36,10 @@ type GitProfile struct {
 	Status      int    `json:"status"`
 }
 
+func printGitProfileList(profiles []*GitProfile) {
+
+}
+
 func (g *GitProfile) print() {
 
 }
@@ -78,6 +82,10 @@ func (o *Args) use() error {
 	return nil
 }
 
+func (o *Args) copy(args *Args) {
+	*o = *args
+}
+
 func (o *Args) setCommand(c ICommand) *Args {
 	o.command = c
 	return o
@@ -92,10 +100,10 @@ func argsParser() *FlagParser {
 	return flagParser
 }
 
-func (o *FlagParser) parse() *Args {
+func (o *FlagParser) parse() (*Args, error) {
 	var res = new(Args)
 	root := cmd.New()
-	listSubCmd := root.SubCommand("list", "")
+	listSubCmd := root.SubCommand("list", "abc")
 
 	useCommand := o.useCommand(root)
 	id := useCommand.Int("id", constant.InvalidId, "")
@@ -104,21 +112,23 @@ func (o *FlagParser) parse() *Args {
 	username_p := setCommand.String("username", "", "")
 	email_p := setCommand.String("email", "", "")
 
+	// 设置解析规则之后，解析参数
+	if err := root.Parse(); err != nil {
+		return nil, err
+	}
+
 	switch {
 	case listSubCmd.Parsed():
 		res.CommandType = constant.CommandList
-		return res
 	case useCommand.Parsed():
 		res.CommandType = constant.CommandUse
 		res.Id = *id
-		return res
 	case setCommand.Parsed():
 		res.CommandType = constant.CommandUse
 		res.Username = *username_p
 		res.Email = *email_p
-		return res
 	}
-	return nil
+	return res, nil
 }
 
 func (o *FlagParser) useCommand(root *cmd.Cmd) *cmd.SubCmd {
@@ -127,11 +137,11 @@ func (o *FlagParser) useCommand(root *cmd.Cmd) *cmd.SubCmd {
 }
 
 func (o *FlagParser) setCommand(root *cmd.Cmd) *cmd.SubCmd {
-	return root.SubCommand("use", "")
+	return root.SubCommand("set", "")
 }
 
 func GitCommand() *Command {
-	if command != nil {
+	if command == nil {
 		command = &Command{
 			flagParser: argsParser(),
 		}
@@ -149,7 +159,11 @@ func (o *Command) Main() error {
 	if err := o.readFromFile(); err != nil {
 		return err
 	}
-	return o.flagParser.parse().setCommand(o).use()
+	if args, err := o.flagParser.parse(); err != nil {
+		return err
+	} else {
+		return args.setCommand(o).use()
+	}
 }
 
 func (o *Command) isGitRepo() error {
@@ -173,6 +187,7 @@ func (o *Command) isGitRepo() error {
 }
 
 func (o *Command) list() error {
+	fmt.Println("list")
 	return nil
 }
 
