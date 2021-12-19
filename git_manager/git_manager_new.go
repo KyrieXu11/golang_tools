@@ -85,15 +85,28 @@ type Args struct {
 func (o *Args) use() error {
 	switch o.CommandType {
 	case constant.CommandUse:
+		if err := o.checkId(); err != nil {
+			return err
+		}
 		return o.command.use(o.Id)
 	case constant.CommandList:
 		return o.command.list()
 	case constant.CommandDelete:
+		if err := o.checkId(); err != nil {
+			return err
+		}
 		return o.command.delete(o.Id)
 	case constant.CommandGet:
 		return o.command.get()
 	case constant.CommandSet:
 		return o.command.set()
+	}
+	return nil
+}
+
+func (o *Args) checkId() error {
+	if o.Id == constant.InvalidId {
+		return fmt.Errorf("please input valid id")
 	}
 	return nil
 }
@@ -256,10 +269,31 @@ func (o *Command) list() error {
 }
 
 func (o *Command) use(id int) error {
-	return o.flush()
+	var err = fmt.Errorf("please input valid id")
+	if o.Current.Id == id {
+		return nil
+	}
+	for _, group := range o.Groups {
+		if group.Id == id {
+			*o.Current = *group
+			return o.flush()
+		}
+	}
+	return err
 }
 
 func (o *Command) delete(id int) error {
+	if o.Current.Id == id {
+		return fmt.Errorf("chose profile id:%d is in use", id)
+	}
+	length := len(o.Groups)
+	for i, group := range o.Groups {
+		if group.Id == id {
+			for j := i; j < length-1; j++ {
+				o.Groups[j] = o.Groups[j+1]
+			}
+		}
+	}
 	return o.flush()
 }
 
