@@ -2,9 +2,16 @@ package git_manager
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/kataras/tablewriter"
+	"github.com/lensesio/tableprinter"
 	"github.com/posener/cmd"
-	"golang_tools/git_manager/constant"
+	"golang_tools/git_manager/common/constant"
+	"golang_tools/git_manager/common/utils"
+	"io/fs"
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -19,25 +26,33 @@ type ICommand interface {
 	// list 命令
 	list() error
 	// use 命令
-	use() error
+	use(id int) error
 	// set 命令
 	set() error
 	// get 命令
 	get() error
 	// delete 命令
-	delete() error
+	delete(id int) error
 }
 
 type GitProfile struct {
-	Id          int    `json:"id"`
-	Username    string `json:"username"`
-	Email       string `json:"email"`
-	Description string `json:"description"`
-	Status      int    `json:"status"`
+	Id          int    `json:"id" header:"id"`
+	Username    string `json:"username" header:"username"`
+	Email       string `json:"email" header:"email"`
+	Description string `json:"description" header:"description"`
+	Status      int    `json:"status" header:"status"`
 }
 
 func printGitProfileList(profiles []*GitProfile) {
+	printer := tableprinter.New(os.Stdout)
+	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
+	printer.CenterSeparator = "│"
+	printer.ColumnSeparator = "│"
+	printer.RowSeparator = "─"
+	printer.HeaderBgColor = tablewriter.BgBlackColor
+	printer.HeaderFgColor = tablewriter.FgGreenColor
 
+	printer.Print(profiles)
 }
 
 func (g *GitProfile) print() {
@@ -52,6 +67,7 @@ func (g *GitProfile) string() string {
 }
 
 type Command struct {
+	savePath   string
 	flagParser *FlagParser
 
 	Current *GitProfile   `json:"current"`
@@ -69,11 +85,11 @@ type Args struct {
 func (o *Args) use() error {
 	switch o.CommandType {
 	case constant.CommandUse:
-		return o.command.use()
+		return o.command.use(o.Id)
 	case constant.CommandList:
 		return o.command.list()
 	case constant.CommandDelete:
-		return o.command.delete()
+		return o.command.delete(o.Id)
 	case constant.CommandGet:
 		return o.command.get()
 	case constant.CommandSet:
@@ -93,7 +109,7 @@ func (o *Args) setCommand(c ICommand) *Args {
 
 type FlagParser struct{}
 
-func argsParser() *FlagParser {
+func newFlagParser() *FlagParser {
 	if flagParser == nil {
 		flagParser = new(FlagParser)
 	}
@@ -142,8 +158,14 @@ func (o *FlagParser) setCommand(root *cmd.Cmd) *cmd.SubCmd {
 
 func GitCommand() *Command {
 	if command == nil {
+		var groups []*GitProfile
+		var current = new(GitProfile)
+		groups = append(groups, current)
 		command = &Command{
-			flagParser: argsParser(),
+			savePath:   `./profiles.json`,
+			flagParser: newFlagParser(),
+			Current:    current,
+			Groups:     groups,
 		}
 	}
 	return command
@@ -186,31 +208,63 @@ func (o *Command) isGitRepo() error {
 	return nil
 }
 
-func (o *Command) list() error {
-	fmt.Println("list")
-	return nil
-}
-
 // readFromFile 读取文件成对象
 func (o *Command) readFromFile() error {
+	file, err := utils.ReadFile(o.savePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var tempObj = new(Command)
+	bs, err := ioutil.ReadAll(file)
+	if err != nil {
+		return err
+	}
+	if len(bs) == 0 {
+		*tempObj = *o
+		return tempObj.flush()
+	}
+	if err = json.Unmarshal(bs, &tempObj); err != nil {
+		return err
+	}
+	o.Current = tempObj.Current
+	o.Groups = tempObj.Groups
 	return nil
 }
 
 // flush 刷新内存配置至文件
-func (o *Command) flush() {
-
-}
-
-func (o *Command) use() error {
+func (o *Command) flush() error {
+	f, err := utils.ReadFile(o.savePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	data, err := json.Marshal(o)
+	if err != nil {
+		return err
+	}
+	if err = ioutil.WriteFile(o.savePath, data, fs.ModeExclusive); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (o *Command) delete() error {
+func (o *Command) list() error {
+	printGitProfileList(o.Groups)
 	return nil
+}
+
+func (o *Command) use(id int) error {
+	return o.flush()
+}
+
+func (o *Command) delete(id int) error {
+	return o.flush()
 }
 
 func (o *Command) set() error {
-	return nil
+	return o.flush()
 }
 
 func (o *Command) get() error {
