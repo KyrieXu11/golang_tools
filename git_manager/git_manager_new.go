@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/kataras/tablewriter"
-	"github.com/lensesio/tableprinter"
 	"github.com/posener/cmd"
 	"golang_tools/git_manager/common/constant"
 	"golang_tools/git_manager/common/utils"
@@ -43,16 +41,19 @@ type GitProfile struct {
 	Status      int    `json:"status" header:"status"`
 }
 
-func printGitProfileList(profiles []*GitProfile) {
-	printer := tableprinter.New(os.Stdout)
-	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
-	printer.CenterSeparator = "│"
-	printer.ColumnSeparator = "│"
-	printer.RowSeparator = "─"
-	printer.HeaderBgColor = tablewriter.BgBlackColor
-	printer.HeaderFgColor = tablewriter.FgGreenColor
-
-	printer.Print(profiles)
+func printGitProfileList(profiles []*GitProfile) error {
+	// TODO: 想好怎么输出为表格的格式
+	bs, err := json.Marshal(profiles)
+	if err != nil {
+		return err
+	}
+	reader := bytes.NewReader(bs)
+	parser := &utils.JSONParser{}
+	out := os.Stdout
+	if err = utils.Format(parser, reader, out); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (g *GitProfile) print() {
@@ -264,8 +265,7 @@ func (o *Command) flush() error {
 }
 
 func (o *Command) list() error {
-	printGitProfileList(o.Groups)
-	return nil
+	return printGitProfileList(o.Groups)
 }
 
 func (o *Command) use(id int) error {
